@@ -1,0 +1,717 @@
+---
+title: "Capstone Project"
+author: "Sarah Eisenstein"
+date: "2023-11-26"
+output: 
+  html_document: 
+    fig_caption: yes
+    df_print: kable
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## **Case Study for Google Data Analytics Professional Certificate**
+
+### **Case Study Topic:** How Can a Wellness Technology Company, Bellabeat, Play it Smart?
+
+#### **Guiding Questions**
+
+1.  What are some trends in smart device usage?
+2.  How could these trends apply to Bellabeat customers?
+3.  How could these trends help influence Bellabeat marketing strategy?
+
+#### **How Can Your Insights Drive Business Decisions?**
+
+1.  Trends in smart device usage may reflect habits of Bellabeat customers.
+2.  More popular trends may indicate what Bellabeat products will be popular with their customers.
+3.  Bellabeat may want to focus on and invest in products that will be popular.
+
+#### **Business Task:** *Key findings regarding trends in smart device usage will be identified in non-Bellabeat users and presented to key stakeholders including the cofounder/CCO, cofounder, and marketing analytics team. The presentation will include insights and recommendations for the marketing strategy based on the key findings.*
+***
+### **Data Preparation**
+
+- The downloaded dataset, [FitBit Fitness Tracker Data](https://www.kaggle.com/datasets/arashnic/fitbit), from Kaggle with [provenance at zenodo.org](https://zenodo.org/records/53894#.X9oeh3Uzaao), is stored on my hard drive and accessible by R Studio.
+
+- The dataset is organized in both wide and long formats. Each Id, representing one user, has data for each day recorded, resulting in many rows and fewer columns. The activities and other fitness-related measures are organized in wide format.
+
+#### **Bias and credibility**
+
+**Reliability:** Data appears to be accurate. Data incomplete due to lack of any demographics data. Data has sample selection bias due to collection method (only 33 users who are online-savvy, responding to distributed survey via Amazon Technical Turk during a limited, dated period of time (March 12, 2016 - May 12, 2016; findings may not extend to a female-only customer base). Zenodo seems to be reputable (see [source](https://datamanagement.hms.harvard.edu/share-publish/data-repositories/zenodo#:~:text=Zenodo%20is%20a%20general%2Dpurpose,researchers%20from%20outside%20the%20EU)).
+
+**Original:** Data is original, although datasets come from second party (see provenance link above).
+
+**Comprehensive:** The data is not comprehensive. There is no demographic information and only samples 31 days.
+
+**Current:** The data is not current; it is from 2016.
+
+**Cited:** The data is cited (see provenance link above).
+
+#### **Licensing, privacy, security and accessibility**
+
+The license for the dataset is CC0: Public Domain and has Creative Commons Attribution 4.0 International license. There are no personal identifiers in the data and each participant consented to the submission of personal tracker data. The data is accessible and free to the public.
+
+#### **Data Integrity**
+
+According to Kaggle users who described the dataset, it is well-documented, well-maintained, clean and original. I explored and cleaned the data to further ensure integrity (see code chunks below).
+
+####   **Dataset Description**
+The data contains both automatically tracked data and manually logged data in 33 users. The daily data for each participant helps assess whether use is consistent over time within users and across users. This allows me to determine trends in FitBit usage. Limitations include small sample size, short duration and lack of demographic information. Variables are not clearly defined and assumptions of what these data reflect are based on field names.  
+
+***
+
+### **Data Processing and Cleaning**
+
+I chose to use tidyverse packages, including dplyr and ggplot2, because I want to hone my expertise in R programming.
+
+Regarding data cleaning, I made sure I have backup copies (original csv's), checked number of rows (no duplicates, 33 unique ids at most) and columns, deleted unneeded fields, filtered for unique values and blanks, cleaned field names, changed field data types as necessary, manipulated strings, checked for whitespace, and fixed dates and times using R. The cleaning process is documented in code chunks and outputs below.  
+
+#### **Installing and Loading Packages**
+```{r warning = FALSE, message=FALSE}
+
+# install.packages("tidyverse")
+library(tidyverse)
+
+# install.packages("dplyr")
+library(dplyr)
+
+# install.packages("ggplot2")
+library(ggplot2)
+
+# install.packages("tidyr")
+library(tidyr)
+
+# install.packages("skimr") # helpful for viewing data
+library(skimr) 
+
+# install.packages("janitor") # helpful for cleaning data
+library(janitor) 
+
+# install.packages("lubridate")
+library(lubridate)
+
+# install.packages("psych") # for generating summary tables
+library(psych)
+
+```
+#### **Importing datasets of interest**
+I am using the FitBit Fitness Tracker dataset, including the Daily Activity and Weight Log data. The Daily Activity dataset contains automatically-recorded device data including activity strenuousness (very active, moderate, light) and duration, number of steps, distance traveled, and number of calories burned in 33 participants over 31 days. Users could also manually log activities on the device and this data is included in the Daily Activity dataset. The Weight Log dataset contains data including weight, BMI and percent body fat in the same 33 users over the same 31 days. These values are automatically recorded by the device or app (assuming via smart scale) or manually logged by the user. **These two datasets will be merged into one dataset for analyses and visualization.**
+```{r import relevant datasets}
+
+daily_activity <- read.csv("DailyActivity_merged.csv") 
+
+weight_log <- read.csv("weightLogInfo_merged.csv") 
+
+```
+
+#### **Exploring dataset formats**
+
+```{r check data types, formatting}
+
+skim_without_charts(daily_activity)
+
+```
+```{r}
+
+head(daily_activity)
+
+```
+**Notes about "daily activity" data based on outputs:**
+
+*  940 rows, 15 columns
+* long format: user id and date = one observation (33 user ids x 31 days = 1023 observations.; so not all 33 users have data 
+ for all 31 dates)
+* wide format for other variables
+* no group variables
+* no cells with missing values, 31 unique dates, no white space
+* activity date is character type, needs to be changed to date format
+* id data type is numeric, needs to be changed to character
+
+```{r}
+
+skim_without_charts(weight_log)
+
+```
+```{r}
+
+head(weight_log)
+
+```
+**Notes about "weight log" data based on outputs:**
+
+* 67 rows, 8 columns
+* no group variables
+* body fat is missing 65 data points; 2 unique "is manual?" (true or false), no 
+whitespace
+* activity date is character type, needs to be changed to date format
+* NA = missing value
+
+#### **Changing Data Types**
+
+```{r change character type dates to date format}
+
+daily_activity_2 <- daily_activity %>% 
+  mutate(date = mdy(ActivityDate)) %>%
+  select(-ActivityDate)
+
+str(daily_activity_2$date) # confirm date format
+
+```
+```{r}
+
+weight_log_2 <- weight_log %>% 
+  mutate(date = as_date(Date, format = "%m/%d/%Y %I:%M:%S %p")) %>% 
+  select(-Date)
+
+str(weight_log_2$date) # confirm date format
+
+```
+```{r make user id character type}
+
+daily_activity_2$Id <- as.character(daily_activity_2$Id)
+
+str(daily_activity_2$Id) # confirm character format
+
+```
+
+```{r}
+weight_log_2$Id <- as.character(weight_log_2$Id)
+
+str(weight_log_2$Id)# confirm character format
+
+```
+
+#### **Checking for Duplicates**
+```{r check # of unique participants}
+
+n_distinct(daily_activity_2$Id)
+
+```
+**Notes based on output:** 33 unique participants, as expected
+
+```{r}
+n_distinct(weight_log_2$Id)
+
+```
+**Notes based on output:** 8 unique participants. 8 users x 31 possible dates = 248 observations. However, there are only 67 rows in this table. So there are only 8 unique participants and participants don't have weight log data for every date.
+
+```{r checking for duplicates}
+
+sum(duplicated(daily_activity_2))
+
+```
+
+```{r}
+
+sum(duplicated(weight_log_2))
+
+```
+
+**Notes based on outputs:** There are no duplicate rows in either dataset and no duplicates need to be removed.
+
+#### **Cleaning Field Names**
+```{r clean names of fields}
+
+daily_activity_clean <- clean_names(daily_activity_2)
+glimpse(daily_activity_clean)
+
+```
+
+```{r}
+
+weight_log_clean <- clean_names(weight_log_2)
+glimpse(weight_log_clean)
+
+```
+
+#### **Filtering and Sorting Data**
+```{r summaries}
+
+daily_activity_clean %>% 
+  select(total_steps, 
+         total_distance, 
+         tracker_distance, 
+         logged_activities_distance, 
+         very_active_distance, 
+         moderately_active_distance, 
+         light_active_distance, 
+         sedentary_active_distance, 
+         calories) %>% 
+  summary()
+
+
+```
+**Notes based on output:**
+
+* A max of 36019 total steps seems very high but possible. This is ~28 km in a day. This does match up with max 
+total/tracker distance of ~28 km when steps are converted to km.
+* For sedentary minutes, the max is 1440, or 24 hr. Will check to see if this is an outlier.
+* Note that logged activity distance is very low (mean = 0.1082 km) due to low use by users (most values = 0)
+* All other fields check out (reasonable min, max, agreement between each other)
+
+```{r}
+
+
+weight_log_clean %>% 
+  select(weight_pounds, 
+         fat, 
+         bmi, 
+         is_manual_report) %>% 
+  summary()
+
+```
+**Notes based on output:** 
+
+* all fields check out (reasonable min, max, agreement between each other) 
+- NA = missing data
+
+```{r}
+weight_log_clean$fat
+```
+**Notes based on output:** only two non-NA value for fat percentage. Will not keep this variable or use it in analyses.
+```{r check if very high values make sense}
+
+# determine if high "total_steps" values are outliers or possible errors
+
+daily_act_clean_steps_test1 <- daily_activity_clean %>% 
+  filter(total_steps > 10000) %>%  # 10727 steps is 75th percentile 
+  select(id, 
+         total_steps, 
+         total_distance, 
+         tracker_distance) %>%
+  slice_max(order_by = total_steps, n = 10) %>% 
+  arrange(desc(total_steps))
+
+daily_act_clean_steps_test1
+
+```
+
+
+```{r}
+
+daily_act_clean_steps_test2 <- daily_activity_clean %>% 
+  filter(id == 1624580081) %>% 
+  select(total_steps, 
+         total_distance,
+         tracker_distance) %>% 
+  slice_max(order_by = total_steps, n = 10) %>% 
+  arrange(desc(total_steps))
+
+daily_act_clean_steps_test2
+
+```
+
+**Notes based on outputs:**
+
+* While 36019 steps is high, other users also had high values (29326 steps next highest in different user).
+* The user with 36019 steps had other dates with high total steps, although not nearly as high as 36019 steps.
+* With no reason to think these data are invalid, this user's data  will remain in analysis.
+
+```{r}
+
+# determine if "sedentary" values are outliers or possible errors
+
+daily_act_clean_sed_test <- daily_activity_clean %>% 
+  filter(sedentary_minutes > 1229) %>%  # 1229 min is 75th percentile 
+  select(id,
+         total_steps,
+         total_distance,
+         tracker_distance,
+         sedentary_active_distance,
+         sedentary_minutes) %>% 
+  slice_max(order_by = total_steps, n = 10) %>% 
+  arrange(desc(sedentary_minutes))
+
+daily_act_clean_sed_test
+
+```
+
+**Notes based on output:** There are several users whose sedentary minutes = or close to 1440 (24 hr). However, in some users, these observations also have a high number of steps etc. Due to uncertainty about this seeming error/inaccuracy, this field will not be included in further analyses. Same with sedentary_active_distance_km.
+
+#### **Renaming field names for clarity**
+
+```{r}
+
+daily_activity_clean <- daily_activity_clean %>% 
+  dplyr::rename_at(vars(-id,
+                        -total_steps,
+                        -very_active_minutes,
+                        -fairly_active_minutes,
+                        -lightly_active_minutes,
+                        -sedentary_minutes, 
+                        -calories, 
+                        -date),
+                   paste0,
+                   "_km") #something about R version or conflict # with other package did not let me run rename 
+# without dplyr:: ("error in rename: unused argument")
+
+daily_activity_clean <- daily_activity_clean %>% 
+  dplyr::rename(calories_burned = calories)
+
+
+colnames(daily_activity_clean) # confirm changes in field names
+
+```
+```{r}
+
+weight_log_clean <- weight_log_clean %>% 
+  dplyr::rename(weight_lb = weight_pounds,
+                BMI = bmi)
+
+colnames(weight_log_clean) # confirm changes in field names
+
+```
+#### **Merging Data**
+Since there are a lot more observations in the daily activity table than in the weight log table, do left join.
+Make sure merge columns have identical names.
+
+```{r}
+
+merged_result <- left_join(daily_activity_clean, 
+                          weight_log_clean, 
+                          by = c("id", "date"))
+
+glimpse(merged_result)
+
+```
+#### **Removing data fields that will not be included in analyses**
+```{r}
+
+merged_result <- merged_result %>% 
+  select(-sedentary_active_distance_km, 
+         -very_active_minutes,
+         -fairly_active_minutes,
+         -lightly_active_minutes,
+         -sedentary_minutes, 
+         -weight_kg,
+         -fat,
+         -log_id)
+
+glimpse(merged_result)
+
+```
+
+#### **Transforming factor level names for clarity**
+```{r}
+merged_result <- merged_result %>% 
+  mutate(
+    is_manual_report = fct_recode(as.factor(is_manual_report),
+                                  Manual = "True",
+                                  Device = "False")
+  )
+
+head(merged_result$is_manual_report)
+```
+
+#### **Removing zero values:** We assume that days with zero total distance traveled are equivalent to days when the device is not worn.
+```{r}
+merged_result <- merged_result %>% 
+  filter(total_distance_km > 0)
+```
+
+***
+
+
+### **Data Analyses and Visualization**
+
+#### **Descriptive Statistics**
+
+```{r}
+describe(merged_result[2:9])
+```
+
+```{r}
+describe(merged_result[11:12])
+```
+
+
+#### **User Trends in Device vs Manual Use**
+```{r determine usage of device and logged data}
+# device use
+
+percent_count_daily_activity_device <- daily_activity_clean %>% 
+  filter(total_distance_km > 0.00) %>% 
+  group_by(date) %>% 
+  summarize(n = n()) %>% 
+  mutate(count = n, percent = (n/33)*100) 
+
+head(percent_count_daily_activity_device)
+
+```
+```{r}
+#manual log use
+
+percent_count_logged_activity <- daily_activity_clean %>% 
+  filter(logged_activities_distance_km > 0.00) %>% 
+  group_by(date) %>% 
+  summarize(n = n()) %>% 
+  mutate(count = n, percent = (n/33)*100)
+
+head(percent_count_logged_activity)
+
+
+```
+
+```{r}
+# device use plot
+
+ggplot(percent_count_daily_activity_device, 
+       aes(x = date, y = percent)) + 
+  geom_col(fill = "blue") + 
+  labs(x = "Date", 
+       y = "Percent of Users", 
+       title = "Daily Device Use",
+       caption = "FitBit Fitness Tracker Data") + 
+  theme_classic()
+```
+
+**Daily Device Use.** Most of the 33 participants used the device daily, especially at the beginning of the study. The data used for this plot was filtered for total distance traveled > 0 km, assuming that 0 km indicates the device was not used on that particular date. Interestingly, device usage dropped to almost 50% during the last week of the study. We would need to know more about the study design and users to interpret the meaning of this drop. For example, were devices brand new when users agreed to contribute their data? This would contribute to a bias indicative of frequent use of a new device after purchase that ebbs off as the novelty wears off or after the battery dies for the first time.
+```{r}
+# manual log use plot
+
+ggplot(percent_count_logged_activity, aes(x = date, y = percent)) + 
+  geom_col(fill = "purple") + 
+  labs(x = "Date", 
+       y = "Percent of users", 
+       title = "Daily Activity Log Use",
+       caption = "FitBit Fitness Tracker Data") + 
+  theme_classic() + 
+  ylim(0, 25)
+```
+
+**Daily Activity Log Use.** In contrast to device use, fewer than 11% of users manually logged activities and no user logged activities daily.
+
+
+```{r}
+# Convert data to long format
+
+pivot_long_distance <- merged_result %>%
+pivot_longer(cols = ("total_distance_km":"light_active_distance_km"),
+names_to = "distance", values_to = "km")
+
+head(pivot_long_distance$distance)
+head(pivot_long_distance$km)
+
+
+```
+```{r}
+pivot_long_weight <- merged_result %>%
+  drop_na() %>% 
+  pivot_longer(cols = ("weight_lb":"BMI"),
+names_to = "variable", values_to = "weight")
+
+head(pivot_long_weight$variable)
+head(pivot_long_weight$weight)
+```
+
+```{r}
+pivot_long_distance_p <- pivot_long_distance %>% 
+  group_by(distance) %>% 
+  summarize(mean_distance = mean(km), 
+            sd_distance = sd(km)) %>% 
+ggplot(., aes(x = distance, 
+              y = mean_distance, 
+              fill = distance)) + 
+  geom_col() + 
+  geom_errorbar(aes(ymax = mean_distance + sd_distance,
+                    ymin = mean_distance)) +
+  theme_classic() +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank()) + 
+  labs(x = "Activity Type", 
+       y = "Average + SD km",
+       title = "Average Distance by Activity Type",
+       caption = "FitBit Fitness Tracker Data") 
+
+pivot_long_distance_p
+
+```
+
+**Average Distance by Activity Type.** On average, lighter activities accounted for the majority of total distance traveled by users, followed by very active and moderate activities. Manually logged distance was low compared to device-recorded distances (all others shown). As expected and consistent with appropriate use of the device, average total and tracker distances were nearly identical. These activities were averaged across 33 participants over up to 31 days of device usage. 
+
+#### **Weight Log Use Trends**
+```{r}
+manual_vs_device_weight_lb <- merged_result %>%
+  drop_na(weight_lb) %>% 
+  ggplot(aes(x = is_manual_report, 
+             y = weight_lb)) +
+  geom_boxplot(aes(fill = is_manual_report), 
+               na.rm = TRUE, 
+               show.legend = FALSE) +
+  theme_classic() + 
+  labs(title = "Weight as Reported by Device vs. Manual Input", 
+       y = "median weight (lb) +/- IQs", 
+       caption = "FitBit Fitness Tracker Data") + 
+  theme(axis.title.x = element_blank())  
+
+manual_vs_device_weight_lb
+```
+
+**Weight as Reported by Device vs. Manual Input.** Only 8 participants contributed to the weight log and for varying numbers of days. Each point reflects data points considered to be outliers (> or < 3 interquartile (IQ) range) and the horizontal bars represent the median weight of the sample depending on whether it was manually logged by the participant or recorded by the device. These results suggest that individuals who weigh more tend to have smart scales compared to individuals who weigh less, with the caveat that this is a very small sample.
+```{r}
+manual_vs_device_bmi <- merged_result %>%
+  drop_na(BMI) %>% 
+  ggplot(aes(x = is_manual_report, y = BMI)) +
+  geom_boxplot(aes(fill = is_manual_report), 
+               na.rm = TRUE, 
+               show.legend = FALSE) +
+  theme_classic() + 
+  labs(title = "BMI as Reported by Device vs. Manual Input", 
+       y = "median BMI (kg/m^2) +/- IQs", 
+       caption = "FitBit Fitness Tracker Data") + 
+  theme(axis.title.x = element_blank())  
+
+manual_vs_device_bmi
+```
+
+**Body Mass Index (BMI) as Reported by Device vs. Manual Input.** Each point reflects outlier data points (> or < 3 interquartile (IQ) range) and the horizontal bars represent the median BMI of the sample depending on whether it was manually logged by the participant or recorded by the device. These results suggest that individuals who have higher BMIs tend to have smart scales compared to individuals who have lower BMIs, with the caveat that this is a very small sample.
+
+#### **Exploring Relationships between Variables**
+```{r message=FALSE}
+# are the number of total steps related to total distance or calories burned?
+
+
+total_steps_and_total_distance_p <- merged_result %>% 
+  filter(total_distance_km > 0.00,
+         total_steps > 0.00) %>% 
+  ggplot(., aes(x = total_steps, 
+                          y = total_distance_km)) + 
+  geom_point() + 
+  geom_smooth() + 
+  theme_classic() + 
+  labs(x = "Total Steps",
+       y = "Total Distance (km)",
+       title = "Total Steps and Distance Traveled",
+       caption = "FitBit Fitness Tracker Data")
+
+  
+total_steps_and_total_distance_p
+```
+
+**Total Steps and Distance Traveled.** The higher the number of total steps, the greater the distance traveled, as recorded by the device. This is a strong positive correlation and a reassuring sign that the device is reliable, since these two variables should be strongly related. The data points reflect each user's data recorded each day. 
+```{r message=FALSE}
+total_dist_and_calories_p <- merged_result %>% 
+  filter(total_distance_km > 0.00,
+         calories_burned > 0.00) %>% 
+  ggplot(., aes(x = total_distance_km,
+                          y = calories_burned)) +
+  geom_point() +
+  geom_smooth() + 
+  theme_classic() + 
+  labs(x = "Total Distance (km)",
+       y = "Calories Burned",
+       title = "Total Distance and Calories Burned",
+       caption = "FitBit Fitness Tracker Data")
+
+
+total_dist_and_calories_p
+
+```
+
+**Total Distance and Calories Burned.** The greater the total distance, the more calories burned, as recorded by the device. This is a strong positive correlation and a reassuring sign that the device is working as it should, since these two variables should be related. The correlation is not as strong as the previous one shown (total steps and distance traveled) because the device's method of deriving number of calories burned is probably more complicated and may be dependent on user characteristics such as gender and weight. Alternatively, the device may not derive calories burned as accurately as it does distance. The data points reflect each user's data recorded on each day of use. 
+```{r message=FALSE}
+# is calories burned related to very active, moderately or light active distance?
+
+
+cal_and_very_active_dist_p <- merged_result %>% 
+  filter(very_active_distance_km > 0.00,
+         calories_burned > 0.00) %>%  
+  ggplot(., aes(x = very_active_distance_km, 
+                          y = calories_burned )) + 
+  geom_point()  + 
+  geom_smooth() + 
+  theme_classic() + 
+  labs(x = "Very Active Distance (km)",
+       y = "Calories Burned",
+       title = "Very Active Distance and Calories Burned",
+       caption = "FitBit Fitness Tracker Data")
+
+  
+cal_and_very_active_dist_p
+```
+
+**Calories Burned and Very Active Distance.** Overall, these data indicate that the number of calories burned increase with higher levels of "very active" activity. Even at lower levels however, "very active" activity was associated with a high number of calories burned (~2500). Interestingly, the change in number of calories burned does not seem to be appreciable until "very active" activity accounts for at least 3 km of distance. The data points reflect each user's data recorded on each day of use. 
+```{r message=FALSE}
+
+cal_and_mod_active_dist_p <- merged_result %>% 
+  filter(moderately_active_distance_km > 0.00,
+         calories_burned > 0.00) %>% 
+  ggplot(., aes(x = moderately_active_distance_km, 
+                          y = calories_burned)) + 
+  geom_point() + 
+  geom_smooth() + 
+  theme_classic() + 
+  labs(x = "Moderately Active Distance (km)",
+       y = "Calories Burned",
+       title = "Moderately Active Distance and Calories Burned",
+       caption = "FitBit Fitness Tracker Data")
+
+
+  
+cal_and_mod_active_dist_p
+```
+
+**Calories Burned and Moderately Active Distance.** These data indicate that changes in "moderate" activity levels do not relate to changes in the number of calories burned. "Moderate activity" was associated with ~2500 calories burned regardless of how much distance it accounted for. The data points reflect each user's data recorded on each day of use. 
+```{r message=FALSE}
+cal_and_light_active_dist_p <- merged_result %>% 
+  filter(light_active_distance_km > 0.00,
+         calories_burned > 0.00) %>%  
+  ggplot(., aes(x = light_active_distance_km, 
+                          y =  calories_burned)) + 
+  geom_point() + 
+  geom_smooth() + 
+  theme_classic() + 
+  labs(x = "Light Active Distance (km)",
+       y = "Calories Burned",
+       title = "Light Active Distance and Calories Burned",
+       caption = "FitBit Fitness Tracker Data")
+
+
+  
+cal_and_light_active_dist_p
+```
+
+**Calories Burned and Light Active Distance.** These data indicate that "light activity" relates to the number of calories burned. At the lower end of "light activity", less than 2000 calories are burned. With increasing "light activity", the number of calories burned modestly but steadily increases. The data points reflect each user's data recorded on each day of use. 
+
+***
+
+## **Final Report**
+
+### **Trends and Relationships in Fitness Device Users**
+
+* Over the course of a month, most users use the device most days, especially during the first 3 weeks.
+
+* Only up to 10% of users use the option to manually log activities and no user uses this option daily.
+
+* On average, users' total distance, over the course of a month, is ~6 km. "Light active" distance (average = 3.6 km) accounts for most of total distance, followed by "very active" (average = 1.6 km) and "moderate distance" (average = 0.6 km).
+
+* Only 8 (24%) of users use the weight log, in which weight and BMI were recorded, and no user uses it daily. There are only two data points for body fat percentage.
+
+* Assuming that device-reported weight and BMI in the weight log is enabled via connection with a smart scale, it seems that users who weigh more or have higher BMIs are more likely to have smart scales. Users who manually log their weight and BMI weigh less and have lower BMIs. However, these data should be interpreted with caution due to the very small sample size.
+
+* A higher number of total steps, over the course of a month,  is strongly related to greater total distance (km) across 33 users, as would be expected and in support of the reliability of the device. 
+
+* As expected, greater total distance is related to more calories burned across 33 users over the course of a month. This result again supports the reliability of the device. The relationship is not as strong as the one between total distance and total steps, indicating that however the device derives "calories burned" is more complicated than for total steps.
+
+* Changes in "light active" and "very active" distances relates to changes in number of calories burned over the course of a month. "Moderate activity" tended to account for less total distance than "light" and "very active" activity and did not relate to changes in number of calories burned.
+
+### **Key Findings**
+
+* The majority of smart device users tend to forego utilizing manual options including the "logged activities" and weight log (weight, BMI and body fat percentage) options.
+
+* Users who weigh more or have higher BMI may be more likely to have smart scales that connect to the device, making manual logging of weight and BMI unnecessary. There were only two data points for body fat percentage, both recorded by the device, suggesting many smart scales do not yet measure it. 
+
+* Like "very active" activity, increases in "light activity" are associated with increases in number of calories burned.  Although causality cannot be inferred, it may be encouraging to users that activity does not have to be strenuous for it to be associated with burning calories, although longer distances may be required to reach the number of calories burned at shorter distances of "very active" activity. 
+
+### **Recommendations for Bellabeat Marketing Strategy Based on Key Findings**
+
+* According to the above analysis, users are unlikely to use manual input features. Focus and invest more in automated recording features in smart devices. Bellabeat is already doing a good job of focusing on three smart devices including Leaf, Time and Spring, which do not require manual input. However, the app has features that require manual input including menstrual cycle and mindfulness. Focus less time and expense on these manual input features.
+
+* Smart scales enable automated recording of weight and BMI, eliminating the need for manual logging. It may be helpful for marketing to emphasize the ability of the smart device to connect with smart scales and thereby increase use of the device-associated weight log. This duo-combination would allow users to easily track not only activity and calories burned but also changes in weight and BMI over time. Users may more easily develop personalized strategies to reach their goals with this extra data.
+
+* If the findings above are supported by further, larger studies of smart device usage, marketing may focus on the concept that increasing engagement in even light activities is associated with increases in calories burned. This concept may be encouraging to users who do not have the ability, time or equipment to perform more strenuous activities. The device makes it easy to monitor strenuousness, distance and number of calories burned and change activity levels or duration as necessary to meet their goals. 
+
+* On the flip side, engaging in even low levels of "very active" activity is associated with burning a high number of calories. Marketing should also focus on emphasizing the time-saving aspect of "very active" activity. Again, the device makes it easy to monitor magnitude and duration of activity and adjust as needed to meet their goals in terms of burning calories.
+
+* **Next steps.** As mentioned by the CCO, further research on fitness-related smart devices should be done using a more timely, larger, and comprehensive dataset. The current dataset has limitations due to small sample size, lack of demographic information, and a limited window of one month of data collection in 2016. The co-founders may want to wait for the marketing analytics team to assess whether the current findings hold up in this separate dataset before making costly decisions. It is important that these decisions are based on findings that extend to Bellabeat's **female** customers and to **extended** use of smart devices. 
